@@ -39,11 +39,15 @@
   <div id="map" style="position:absolute;top:0;left:0;bottom:0;right:0;"></div>
   <div id="mixer">
     <ul>
-      <li><b>凸面</b><input type="range" id="convex" min="1" max="100" value="30" /></li>
-      <li><b>凹面</b><input type="range" id="concave" min="1" max="100" value="30" /></li>
-      <li><b>傾斜</b><input type="range" id="slope" min="1" max="100" value="30" /></li>
-      <li><b>光源</b><input type="range" id="light" min="0" max="360" value="0" /></li>
+      <li class="csmap"><b>凸面</b><input type="range" id="convex" min="1" max="100" value="30" /></li>
+      <li class="csmap"><b>凹面</b><input type="range" id="concave" min="1" max="100" value="30" /></li>
+      <li class="csmap"><b>傾斜</b><input type="range" id="slope" min="1" max="100" value="30" /></li>
+      <li class="hillshade"><b>光源</b><input type="range" id="light" min="0" max="360" value="0" /></li>
+      <li class="contour"><b>間隔</b><input type="range" id="interval" min="0" max="100" value="30" /></li>
+      <li class="relief"><b>下限</b><input type="range" id="lower" min="0" max="500" value="180" /></li>
+      <li class="relief"><b>上限</b><input type="range" id="upper" min="0" max="500" value="280" /></li>
     </ul>
+    <button id="gps" style="display:block;width:95%;margin:5px auto;">GPS測位</button>
   </div>
   <script>
     var fragmentShader = (function() {
@@ -121,6 +125,7 @@ void main() {
       precision mediump float;
       uniform sampler2D image;
       uniform vec2 unit;
+      uniform vec4 argv;
       uniform float zoom;
       const vec4 rgb2alt = vec4(256 * 256, 256 , 1, 0) * 256.0 * 0.01;
       vec3 hue2rgb(float hue){
@@ -137,7 +142,7 @@ void main() {
       void main() {
         vec2 p = vec2(gl_FragCoord.x,1.0 / unit.y - gl_FragCoord.y);
         float alt = dot(texture2D(image,p * unit),rgb2alt);
-        float hue =  0.5 - ((alt - 180.0) /  (280.0 - 180.0));
+        float hue =  0.5 - ((alt - argv[0]) /  (argv[1] - argv[0]));
         gl_FragColor = (alt < 0.0 || alt > 4000.0) ? vec4(0,0,0,0) : vec4(hsl2rgb(vec3(hue,0.5,0.5)),1.0);
       }
 
@@ -171,13 +176,27 @@ gl_FragColor = vec4(0,0,0,clamp((c - v) / exp2(17.0 - zoom),0.0,0.75));
     }).toString().split("/*")[1].split("*/")[0];
 
     var home = L.latLng(35.645962, 139.279513);
+    var marker = L.marker(home);
+    var circle = L.circle(home, 10);
+
     var map = L.map("map", {
       zoom: 18,
       maxZoom: 22,
       center: home
+    }).on("layeradd layerremove", function() {
+      $("#mixer li").hide();
+      if (map.hasLayer(csmap)) $(".csmap").show();
+      if (map.hasLayer(contour)) $(".contour").show();
+      if (map.hasLayer(hillshade)) $(".hillshade").show();
+      if (map.hasLayer(relief)) $(".relief").show();
+    }).on("locationfound", function(e) {
+      marker.setLatLng(e.latlng);
+      circle.setLatLng(e.latlng);
+      circle.setRadius(e.accuracy / 2);
     });
     map.zoomControl.setPosition("bottomright");
-    L.marker(home).addTo(map);
+    marker.addTo(map);
+    circle.addTo(map);
     L.control.scale({
       metric: true,
       imperial: false
@@ -261,7 +280,6 @@ gl_FragColor = vec4(0,0,0,clamp((c - v) / exp2(17.0 - zoom),0.0,0.75));
       pane: 'tilePane'
     });
 
-
     L.control.layers({
       "高尾山周辺": L.layerGroup([pale, csmap]).addTo(map),
       "断彩図": relief,
@@ -274,23 +292,44 @@ gl_FragColor = vec4(0,0,0,clamp((c - v) / exp2(17.0 - zoom),0.0,0.75));
         maxZoom: 22
       })
     }, {
-      "5m等高線": contour,
+      "等高線": contour,
       "陰影図": hillshade
     }).addTo(map);
 
-    $("#mixer input").on("change input", function() {
+
+    $(".csmap input").on("change input", function() {
       var convex = parseFloat($("#convex").val());
       var concave = parseFloat($("#concave").val());
       var slope = parseFloat($("#slope").val());
-      var light = parseFloat($("#light").val());
       csmap.options.argv[0] = 6.0 * convex / 100;
       csmap.options.argv[1] = 6.0 * concave / 100;
       csmap.options.argv[2] = 0.5 * slope / 100;
       csmap.repaint();
+    }).eq(1).trigger("input");
+
+    $(".hillshade input").on("change input", function() {
+      var light = parseFloat($("#light").val());
       hillshade.options.argv[0] = light;
       hillshade.repaint();
     }).eq(1).trigger("input");
 
+    $(".contour input").on("change input", function() {
+      var interval = parseFloat($("#interval").val());
+      contour.options.argv[0] = 20 * interval / 100 + 0.1;
+      contour.repaint();
+    }).eq(1).trigger("input");
+
+    $(".relief input").on("change input", function() {
+      var upper = parseFloat($("#upper").val());
+      var lower = parseFloat($("#lower").val());
+      relief.options.argv[0] = lower;
+      relief.options.argv[1] = upper;
+      relief.repaint();
+    }).eq(1).trigger("input");
+
+    $("#gps").on("click", function() {
+      map.locate();
+    });
   </script>
 </body>
 
