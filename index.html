@@ -369,6 +369,7 @@ gl_FragColor = vec4(0,0,0,clamp((c - v) / exp2(17.0 - zoom),0.0,0.75));
     }).eq(1).trigger("input");
 
     $("#off").hide().click(function() {
+      map.stopLocate();
       marker.remove();
       circle.remove();
       $("#off").hide();
@@ -381,7 +382,8 @@ gl_FragColor = vec4(0,0,0,clamp((c - v) / exp2(17.0 - zoom),0.0,0.75));
       $("#on").hide();
       map.locate({
         watch: true,
-        setView: true
+        setView: true,
+        maxZoom: 18
       });
     });
   </script>
