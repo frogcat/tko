@@ -3,10 +3,10 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>高尾CS立体図</title>
+  <title>地形情報利用シンポジウム</title>
   <meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.2.0/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.0/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.3.0/dist/leaflet.js"></script>
   <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
   <script src="https://frogcat.github.io/leaflet-tilelayer-glue/leaflet-tilelayer-glue.js"></script>
   <style>
@@ -32,6 +32,12 @@
       display: inline-block;
       width: 2.5em;
     }
+
+    #mixer button {
+      white-space: nowrap;
+      display: block;
+      width: 100%;
+    }
   </style>
 </head>
 
@@ -47,7 +53,10 @@
       <li class="relief"><b>下限</b><input type="range" id="lower" min="0" max="500" value="180" /></li>
       <li class="relief"><b>上限</b><input type="range" id="upper" min="0" max="500" value="280" /></li>
     </ul>
-    <button id="gps" style="display:block;width:95%;margin:5px auto;">GPS測位</button>
+    <div style="margin:5px;">
+      <button id="on">GPSオン</button>
+      <button id="off">GPSオフ</button>
+    </div>
   </div>
   <script>
     var fragmentShader = (function() {
@@ -175,7 +184,19 @@ gl_FragColor = vec4(0,0,0,clamp((c - v) / exp2(17.0 - zoom),0.0,0.75));
 */
     }).toString().split("/*")[1].split("*/")[0];
 
+
+    var orange = L.icon({
+      iconUrl: 'navi/marker-icon-orange.png',
+      shadowUrl: 'https://unpkg.com/leaflet@1.3.0/dist/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      tooltipAnchor: [16, -28],
+      shadowSize: [41, 41]
+    });
+
     var home = L.latLng(35.645962, 139.279513);
+
     var marker = L.marker(home);
     var circle = L.circle(home, 10);
 
@@ -194,6 +215,20 @@ gl_FragColor = vec4(0,0,0,clamp((c - v) / exp2(17.0 - zoom),0.0,0.75));
       circle.setLatLng(e.latlng);
       circle.setRadius(e.accuracy / 2);
     });
+
+    L.marker([35.646336, 139.279446], {
+      icon: orange
+    }).bindPopup("多摩森林科学園").addTo(map)
+
+    L.marker([35.686150, 139.731931], {
+      icon: orange
+    }).bindPopup("南国亭　四ツ谷店").addTo(map)
+
+    L.marker([35.686568, 139.728185], {
+      icon: orange
+    }).bindPopup("TKPスター貸会議室 四谷　第1会議室").addTo(map);
+
+
     map.zoomControl.setPosition("bottomright");
     marker.addTo(map);
     circle.addTo(map);
@@ -281,19 +316,25 @@ gl_FragColor = vec4(0,0,0,clamp((c - v) / exp2(17.0 - zoom),0.0,0.75));
     });
 
     L.control.layers({
-      "高尾山周辺": L.layerGroup([pale, csmap]).addTo(map),
-      "断彩図": relief,
-      "写真": photo,
-      "写真＋CS": L.layerGroup([photo, csmap]),
-      "CS立体図": L.tileLayer("https://mtile.pref.miyazaki.lg.jp/tile/cstakao/{z}/{x}/{y}.png", {
+      "CS(合成)": L.layerGroup([pale, csmap]).addTo(map),
+      "CS(画像)": L.tileLayer("https://mtile.pref.miyazaki.lg.jp/tile/cstakao/{z}/{x}/{y}.png", {
         attribution: "高尾CS立体図(高尾周辺)",
         tms: true,
         maxnativeZoom: 17,
         maxZoom: 22
+      }),
+      "写真": photo,
+      "断彩": relief,
+      "写真＋CS": L.layerGroup([photo, csmap]),
+      "標高PNG": L.tileLayer("{z}/{x}/{y}.png", {
+        attribution: "高尾1mDEM(東京都)",
+        maxZoom: 22,
+        maxNativeZoom: 17,
+        minZoom: 14
       })
     }, {
       "等高線": contour,
-      "陰影図": hillshade
+      "陰影": hillshade
     }).addTo(map);
 
 
@@ -327,8 +368,21 @@ gl_FragColor = vec4(0,0,0,clamp((c - v) / exp2(17.0 - zoom),0.0,0.75));
       relief.repaint();
     }).eq(1).trigger("input");
 
-    $("#gps").on("click", function() {
-      map.locate();
+    $("#off").hide().click(function() {
+      marker.remove();
+      circle.remove();
+      $("#off").hide();
+      $("#on").show();
+    });
+    $("#on").on("click", function() {
+      circle.addTo(map);
+      marker.addTo(map);
+      $("#off").show();
+      $("#on").hide();
+      map.locate({
+        watch: true,
+        setView: true
+      });
     });
   </script>
 </body>
